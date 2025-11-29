@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drilling Solids Analyzer</title>
+    <!-- PWA Manifest & Theme -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" type="image/png" href="icon.png">
+
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for better visibility and aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            /* Dark background */
+            transition: background-color 0.3s;
+            color: #f8fafc;
+        }
+
+        .card {
+            background-color: #1e293b;
+            /* Darker card background */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 4, 0, 0.1);
+        }
+
+        .result-box {
+            background-color: #334155;
+            /* Slightly lighter box for results */
+            border-left: 5px solid #6366f1;
+            /* Indigo border */
+        }
+
+        input[type="number"] {
+            background-color: #0f172a;
+            color: #f1f5f9;
+            border-color: #374151;
+        }
+
+        input[type="number"]:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 1px #6366f1;
+            outline: none;
+        }
+
+        label {
+            color: #cbd5e1;
+        }
+    </style>
+</head>
+
+<body class="p-4 sm:p-8">
+    <div id="app" class="max-w-6xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-indigo-400 sm:text-5xl">
+                Drilling Solids Analyzer
+            </h1>
+            <p class="mt-2 text-lg text-gray-400">
+                Calculate Brine Correction, KCL, and Solids Content (Bent/DS/HGS).
+            </p>
+        </header>
+
+        <!-- Main Application Structure -->
+        <div class="space-y-10">
+
+            <!-- 1. INPUTS -->
+            <section id="inputs" class="card p-6 sm:p-8 rounded-xl space-y-6">
+                <h2 class="text-2xl font-bold text-indigo-300 border-b pb-2 border-slate-700">
+                    Input Properties
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                    <!-- Mud Weight -->
+                    <div class="flex flex-col space-y-1">
+                        <label for="mudWeight" class="text-sm font-medium text-sky-400">
+                            Mud Weight <span class="text-xs text-sky-500">(SG)</span>
+                        </label>
+                        <input type="number" id="mudWeight" value="1.20" min="0" step="0.01" oninput="calculateSolids()"
+                            class="px-4 py-2 border rounded-lg w-full border-sky-700 focus:border-sky-500">
+                    </div>
+
+                    <!-- Water Retort -->
+                    <div class="flex flex-col space-y-1">
+                        <label for="waterRetort" class="text-sm font-medium">
+                            Water Retort <span class="text-xs text-indigo-500">(%)</span>
+                        </label>
+                        <input type="number" id="waterRetort" value="85.0" min="0" step="0.1"
+                            oninput="calculateSolids()" class="px-4 py-2 border rounded-lg w-full">
+                    </div>
+
+                    <!-- Oil Retort -->
+                    <div class="flex flex-col space-y-1">
+                        <label for="oilRetort" class="text-sm font-medium">
+                            Oil Retort <span class="text-xs text-indigo-500">(%)</span>
+                        </label>
+                        <input type="number" id="oilRetort" value="1.0" min="0" step="0.1" oninput="calculateSolids()"
+                            class="px-4 py-2 border rounded-lg w-full">
+                    </div>
+
+                    <!-- MBT -->
+                    <div class="flex flex-col space-y-1">
+                        <label for="mbt" class="text-sm font-medium">
+                            MBT <span class="text-xs text-indigo-500">(lb/bbl)</span>
+                        </label>
+                        <input type="number" id="mbt" value="15.0" min="0" step="0.5" oninput="calculateSolids()"
+                            class="px-4 py-2 border rounded-lg w-full">
+                    </div>
+
+                    <!-- Chlorides -->
+                    <div class="flex flex-col space-y-1">
+                        <label for="chlorides" class="text-sm font-medium">
+                            Chlorides <span class="text-xs text-indigo-500">(mg/L)</span>
+                        </label>
+                        <input type="number" id="chlorides" value="20000" min="0" step="100" oninput="calculateSolids()"
+                            class="px-4 py-2 border rounded-lg w-full">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. RESULTS GRID -->
+            <section id="results" class="space-y-6">
+                <h2 class="text-2xl font-bold text-indigo-300 border-b pb-2 border-slate-700">
+                    Analysis Results
+                </h2>
+
+                <!-- Primary Outputs -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                    <!-- BCF -->
+                    <div class="result-box p-4 rounded-xl shadow-lg">
+                        <p class="text-lg font-semibold text-indigo-400">BCF</p>
+                        <div id="bcf-output" class="text-3xl font-extrabold text-white mt-1">0.000</div>
+                        <p class="text-sm text-gray-400 mt-2">Brine Correction Factor</p>
+                    </div>
+
+                    <!-- Uncorrected Solid -->
+                    <div class="result-box p-4 rounded-xl shadow-lg">
+                        <p class="text-lg font-semibold text-indigo-400">Uncorrected Solid</p>
+                        <div id="uncorrected-solid-output" class="text-3xl font-extrabold text-white mt-1">0.00 %</div>
+                        <p class="text-sm text-gray-400 mt-2">Total solid volume from retort</p>
+                    </div>
+
+                    <!-- SG KCL Brine -->
+                    <div class="result-box p-4 rounded-xl shadow-lg">
+                        <p class="text-lg font-semibold text-indigo-400">SG KCL Brine</p>
+                        <div id="sg-brine-output" class="text-3xl font-extrabold text-white mt-1">0.000</div>
+                        <p class="text-sm text-gray-400 mt-2">Specific Gravity of Brine</p>
+                    </div>
+
+                    <!-- Dissolved Salt -->
+                    <div class="result-box p-4 rounded-xl shadow-lg">
+                        <p class="text-lg font-semibold text-indigo-400">Dissolved Salt</p>
+                        <div id="dissolved-salt-output" class="text-3xl font-extrabold text-white mt-1">0.00 %</div>
+                        <p class="text-sm text-gray-400 mt-2">Volume % of Salt</p>
+                    </div>
+                </div>
+
+                <!-- Secondary Outputs (Solids Breakdown) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    <!-- Corrected Solid -->
+                    <div class="result-box p-4 rounded-xl shadow-lg border-l-emerald-500">
+                        <p class="text-lg font-semibold text-emerald-400">Corrected Solid</p>
+                        <div id="corrected-solid-output" class="text-3xl font-extrabold text-white mt-1">0.00 %</div>
+                        <p class="text-sm text-gray-400 mt-2">True Solid Volume</p>
+                    </div>
+
+                    <!-- ASG -->
+                    <div class="result-box p-4 rounded-xl shadow-lg border-l-emerald-500">
+                        <p class="text-lg font-semibold text-emerald-400">ASG</p>
+                        <div id="asg-output" class="text-3xl font-extrabold text-white mt-1">0.000</div>
+                        <p class="text-sm text-gray-400 mt-2">Average Specific Gravity</p>
+                    </div>
+
+                    <!-- HGS -->
+                    <div class="result-box p-4 rounded-xl shadow-lg border-l-red-500">
+                        <p class="text-lg font-semibold text-red-400">HGS</p>
+                        <div class="flex justify-between items-baseline mt-1">
+                            <span id="hgs-pct-output" class="text-3xl font-extrabold text-white">0.00 %</span>
+                            <span id="hgs-conc-output" class="text-lg font-bold text-gray-300">0.0 lb/bbl</span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-2">High Gravity Solids</p>
+                    </div>
+                </div>
+
+                <!-- Tertiary Outputs (LGS Breakdown) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    <!-- LGS Total -->
+                    <div class="result-box p-4 rounded-xl shadow-lg border-l-yellow-500">
+                        <p class="text-lg font-semibold text-yellow-400">LGS (Total)</p>
+                        <div class="flex justify-between items-baseline mt-1">
+                            <span id="lgs-pct-output" class="text-3xl font-extrabold text-white">0.00 %</span>
+                            <span id="lgs-conc-output" class="text-lg font-bold text-gray-300">0.0 lb/bbl</span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-2">Low Gravity Solids</p>
+                    </div>
+
+                    <!-- Bentonite -->
+                    <div class="result-box p-4 rounded-xl shadow-lg border-l-yellow-500">
+                        <p class="text-lg font-semibold text-yellow-400">Bent (MBT)</p>
+                        <div class="flex justify-between items-baseline mt-1">
+                            <span id="bent-pct-output" class="text-3xl font-extrabold text-white">0.00 %</span>
+                            <span id="bent-conc-output" class="text-lg font-bold text-gray-300">0.0 lb/bbl</span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-2">Bentonite from MBT</p>
+                    </div>
+
+                    <!-- Drilled Solids -->
+                    <div class="result-box p-4 rounded-xl shadow-lg border-l-yellow-500">
+                        <p class="text-lg font-semibold text-yellow-400">DS (Drilled Solids)</p>
+                        <div class="flex justify-between items-baseline mt-1">
+                            <span id="ds-pct-output" class="text-3xl font-extrabold text-white">0.00 %</span>
+                            <span id="ds-conc-output" class="text-lg font-bold text-gray-300">0.0 lb/bbl</span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-2">LGS - Bentonite</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 4. FORMULAS USED -->
+        <footer class="mt-10 p-6 bg-slate-800 rounded-xl shadow-inner">
+            <h3 class="text-xl font-semibold text-gray-200 mb-3">Formulas Used</h3>
+            <div class="text-gray-400 space-y-2 text-sm font-mono">
+                <p>BCF = 1 + (2.775e-7 * Cl^1.105)</p>
+                <p>SG Brine = 1.00056 + (1.22832e-6 * Cl)</p>
+                <p>Corrected Brine = Water% * BCF</p>
+                <p>Dissolved Salt = Corrected Brine - Water%</p>
+                <p>Corrected Solid = 100 - (Corrected Brine + Oil%)</p>
+                <p>Mass Balance used for HGS/LGS split (assuming HGS=4.2, LGS=2.6)</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Constants
+        const TOTAL_MUD_VOLUME = 100;
+        const SG_HGS = 4.2;
+        const SG_LGS = 2.6;
+        const SG_OIL = 0.84;
+        const DENSITY_WATER_PPG = 8.33;
+
+        // Utility function to safely get input values
+        function getInput(id) {
+            const element = document.getElementById(id);
+            if (!element) return 0;
+            const value = parseFloat(element.value);
+            return isNaN(value) || value < 0 ? 0 : value;
+        }
+
+        // Main calculation function
+        function calculateSolids() {
+            // --- 1. GET INPUTS ---
+            const mudWeightSg = getInput('mudWeight');
+            const waterRetortPct = getInput('waterRetort');
+            const oilRetortPct = getInput('oilRetort');
+            const mbt = getInput('mbt'); // lb/bbl
+            const chlorides = getInput('chlorides'); // mg/L
+
+            // --- 2. KCL & BRINE CALCULATIONS ---
+            // Convert Chlorides to KCL (for display/reference)
+            const kclMgL = chlorides * 2.103;
+
+            // Calculate SG KCL Brine - User Formula
+            // SG = 1.00056 + (1.22832 * 10^-6 * Cl)
+            const sgBrine = 1.00056 + (1.22832e-6 * chlorides);
+
+            // BCF (Brine Correction Factor) - User Formula
+            // BCF = 1 + (2.775 * 10^-7 * Cl^1.105)
+            const bcf = 1 + (2.775e-7 * Math.pow(chlorides, 1.105));
+
+            // Calculate Corrected Brine
+            let correctedBrinePct = waterRetortPct * bcf;
+            if (correctedBrinePct > TOTAL_MUD_VOLUME) correctedBrinePct = TOTAL_MUD_VOLUME;
+
+            // Derived Dissolved Salt Volume % (for display consistency)
+            // Salt Vol = Corrected Brine - Water Vol
+            const volSaltPct = Math.max(0, correctedBrinePct - waterRetortPct);
+
+            // --- 3. SOLIDS CORRECTION ---
+            const uncorrectedSolidPct = TOTAL_MUD_VOLUME - (waterRetortPct + oilRetortPct);
+            const correctedSolidPct = Math.max(0, TOTAL_MUD_VOLUME - (correctedBrinePct + oilRetortPct));
+
+            // --- 4. MASS BALANCE (HGS/LGS) ---
+            // Mass_Total (SG units) = MW_SG * 100
+            const massTotal = mudWeightSg * 100;
+            const massOil = oilRetortPct * SG_OIL;
+            const massBrine = correctedBrinePct * sgBrine;
+
+            const massSolids = massTotal - massOil - massBrine;
+
+            // Solve for HGS/LGS
+            // vL + vH = correctedSolidPct
+            // vL*2.6 + vH*4.2 = massSolids
+
+            let vH = 0;
+            let vL = 0;
+
+            if (SG_HGS !== SG_LGS) {
+                vH = (massSolids - (correctedSolidPct * SG_LGS)) / (SG_HGS - SG_LGS);
+                vL = correctedSolidPct - vH;
+            } else {
+                vL = correctedSolidPct;
+            }
+
+            // Clamp results for display (prevent negative HGS/LGS from breaking UI, but show real calc if possible)
+            // For now, clamp to 0
+            let finalVH = Math.max(0, vH);
+            let finalVL = Math.max(0, vL);
+
+            // Re-normalize if clamping happened
+            if (finalVH + finalVL > 0 && Math.abs((finalVH + finalVL) - correctedSolidPct) > 0.1) {
+                // If we clamped, we might have lost volume. 
+                // Usually negative HGS means MW is too low -> All LGS.
+                if (vH < 0) { finalVH = 0; finalVL = correctedSolidPct; }
+                if (vL < 0) { finalVL = 0; finalVH = correctedSolidPct; }
+            }
+
+            // --- 5. BENTONITE & DRILLED SOLIDS ---
+            // Bent (lb/bbl) = MBT
+            const bentLbBbl = mbt;
+            // Bent Vol % = Bent lb/bbl / 9.1 (assuming 2.6 SG)
+            // 9.1 = 2.6 * 3.5 (approx conversion factor)
+            const bentVolPct = bentLbBbl / 9.1;
+
+            // DS Vol % = LGS Vol % - Bent Vol %
+            const dsVolPct = Math.max(0, finalVL - bentVolPct);
+            const dsLbBbl = dsVolPct * 9.1;
+
+            // ASG (Average Specific Gravity)
+            // Mass Solids / Vol Solids
+            let asg = 0;
+            if (correctedSolidPct > 0) {
+                asg = massSolids / correctedSolidPct;
+            }
+
+            // --- 6. DISPLAY RESULTS ---
+            document.getElementById('bcf-output').textContent = bcf.toFixed(3);
+            document.getElementById('uncorrected-solid-output').textContent = uncorrectedSolidPct.toFixed(2) + ' %';
+            document.getElementById('sg-brine-output').textContent = sgBrine.toFixed(3);
+            document.getElementById('dissolved-salt-output').textContent = volSaltPct.toFixed(2) + ' %';
+
+            document.getElementById('corrected-solid-output').textContent = correctedSolidPct.toFixed(2) + ' %';
+            document.getElementById('asg-output').textContent = asg.toFixed(2);
+
+            document.getElementById('hgs-pct-output').textContent = finalVH.toFixed(2) + ' %';
+            document.getElementById('hgs-conc-output').textContent = (finalVH * SG_HGS * 3.5).toFixed(1) + ' lb/bbl';
+
+            document.getElementById('lgs-pct-output').textContent = finalVL.toFixed(2) + ' %';
+            document.getElementById('lgs-conc-output').textContent = (finalVL * SG_LGS * 3.5).toFixed(1) + ' lb/bbl';
+
+            document.getElementById('bent-pct-output').textContent = bentVolPct.toFixed(2) + ' %';
+            document.getElementById('bent-conc-output').textContent = bentLbBbl.toFixed(1) + ' lb/bbl';
+
+            document.getElementById('ds-pct-output').textContent = dsVolPct.toFixed(2) + ' %';
+            document.getElementById('ds-conc-output').textContent = dsLbBbl.toFixed(1) + ' lb/bbl';
+        }
+
+        // Run calculation on load
+        window.onload = calculateSolids;
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+
+</html>
